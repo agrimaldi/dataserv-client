@@ -177,7 +177,8 @@ class Client(object):
             time.sleep(int(delay))
 
     def build(self, cleanup=False, rebuild=False,
-              set_height_interval=common.DEFAULT_SET_HEIGHT_INTERVAL):
+              set_height_interval=common.DEFAULT_SET_HEIGHT_INTERVAL,
+              num_cores=common.DEFAULT_NUMCORES):
         """
         Generate test files deterministically based on address.
 
@@ -191,9 +192,10 @@ class Client(object):
         )
         cleanup = deserialize.flag(cleanup)
         rebuild = deserialize.flag(rebuild)
+        num_cores = deserialize.positive_nonzero_integer(num_cores)
 
         self._init_messenger()
-        logger.info("Starting build")
+        logger.info("Starting build with {} cores".format(num_cores))
 
         on_generate_shard = partial(
             _on_generate_shard,
@@ -206,7 +208,7 @@ class Client(object):
                                debug=self.debug,
                                on_generate_shard=on_generate_shard)
         generated = bldr.build(self.store_path, cleanup=cleanup,
-                               rebuild=rebuild)
+                               rebuild=rebuild, num_cores=num_cores)
 
         logger.info("Build finished")
         return generated

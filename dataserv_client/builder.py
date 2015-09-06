@@ -111,7 +111,7 @@ class Builder:
             logger.info("Resuming from height {0}".format(index + 1))
         return enum_seeds[index:]
 
-    def build(self, store_path, cleanup=False, rebuild=False):
+    def build(self, store_path, cleanup=False, rebuild=False, num_cores=1):
         """
         Fill the farmer with data up to their max.
 
@@ -130,7 +130,7 @@ class Builder:
             store_path=store_path,
             cleanup=cleanup
         )
-        with ProcessPoolExecutor(max_workers=4) as executor:
+        with ProcessPoolExecutor(max_workers=num_cores) as executor:
             g = executor.map(worker, enum_seeds)
         generated = dict(list(g))
 
