@@ -5,6 +5,7 @@ install_aliases()
 
 import os
 import time
+from functools import partial
 from datetime import datetime
 from datetime import timedelta
 from btctxstore import BtcTxStore
@@ -26,6 +27,22 @@ SHOW_CONFIG_TEMPLATE = """Current configuration.
     Authentication address: {0}
     Payout address: {0}
 """
+
+
+def _on_generate_shard(cur_height, cur_seed, cur_file_hash, client, set_height_interval):
+    """
+    Because URL requests are slow, only update the server when we are
+    at the first height, at some height_interval, or the last height.
+
+    :param cur_height: Current height in the building process.
+    """
+    first = cur_height == 1
+    set_height = (cur_height % int(set_height_interval)) == 0
+    last = int(client.max_size / common.SHARD_SIZE) == cur_height
+
+    if first or set_height or last:
+        client.messenger.height(cur_height)
+        logger.info("Current height at {0}.".format(cur_height))
 
 
 class Client(object):
@@ -178,26 +195,16 @@ class Client(object):
         self._init_messenger()
         logger.info("Starting build")
 
-        def _on_generate_shard(cur_height, cur_seed, cur_file_hash):
-            """
-            Because URL requests are slow, only update the server when we are
-            at the first height, at some height_interval, or the last height.
-
-            :param cur_height: Current height in the building process.
-            """
-            first = cur_height == 1
-            set_height = (cur_height % int(set_height_interval)) == 0
-            last = int(self.max_size / common.SHARD_SIZE) == cur_height
-
-            if first or set_height or last:
-                self.messenger.height(cur_height)
-                logger.info("Current height at {0}.".format(cur_height))
-
+        on_generate_shard = partial(
+            _on_generate_shard,
+            client=self,
+            set_height_interval=set_height_interval
+        )
         # Initialize builder and generate/re-generate shards
         bldr = builder.Builder(self.cfg["payout_address"],
                                common.SHARD_SIZE, self.max_size,
                                debug=self.debug,
-                               on_generate_shard=_on_generate_shard)
+                               on_generate_shard=on_generate_shard)
         generated = bldr.build(self.store_path, cleanup=cleanup,
                                rebuild=rebuild)
 
