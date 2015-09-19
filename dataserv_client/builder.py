@@ -9,6 +9,7 @@ from datetime import datetime
 from dataserv_client import control
 from dataserv_client import common
 
+from functools import partial, partialmethod
 
 logger = common.logging.getLogger(__name__)
 
@@ -47,7 +48,7 @@ class Builder:
         """Deterministically build a seed."""
         return self._build_all_seeds(height).pop()
 
-    def _get_shard_path(self, store_path, seed, create_needed_folders=False):
+    def _get_shard_path(self, store_path=None, seed=None, create_needed_folders=False):
         if self.use_folder_tree:
             folders = os.path.join(*control.util.chunks(seed, 3))
             store_path = os.path.join(store_path, folders)
@@ -86,6 +87,52 @@ class Builder:
 
         return file_hash
 
+    def generate_shards(self, enum_seeds, store_path, cleanup):
+        shard_nums, seeds = zip(*enum_seeds)
+
+        paths = [self._get_shard_path(
+            store_path=store_path,
+            create_needed_folders=True,
+            seed=seed
+        ) for seed in seeds]
+
+        # save the shards
+        batch = RandomIO.BatchRandomIO(seeds, paths, self.shard_size, ncores=4)
+        hashes = batch.genfiles()
+        import sys; sys.exit()
+        import pdb; pdb.set_trace()  # XXX BREAKPOINT
+
+        # try:
+            # RandomIO.RandomIO(seed).genfile(self.shard_size, path)
+        # except IOError as e:
+            # msg = "Failed to write shard, will try once more! '{0}'"
+            # logger.error(msg.format(repr(e)))
+            # time.sleep(2)
+            # RandomIO.RandomIO(seed).genfile(self.shard_size, path)
+
+        # # get the file hash
+        # with open(path, 'rb') as f:
+            # file_hash = hashlib.sha256(f.read()).hexdigest()
+
+        # # remove file if requested
+        # if cleanup:
+            # os.remove(path)
+
+        # return file_hash
+
+        # for shard_num, seed in enum_seeds:
+
+            # file_hash = self.generate_shard(seed, store_path, cleanup=cleanup)
+            # generated[seed] = file_hash
+            # logger.info("Saving seed {0} with SHA-256 hash {1}.".format(
+                # seed, file_hash
+            # ))
+
+            # if self.on_generate_shard:
+                # self.on_generate_shard(shard_num + 1, seed, file_hash)
+
+        # return generated
+
     def filter_to_resume_point(self, store_path, enum_seeds):
         """
         Binary search to find the proper place to resume.
@@ -123,18 +170,8 @@ class Builder:
         if not rebuild:
             enum_seeds = self.filter_to_resume_point(store_path, enum_seeds)
 
-        for shard_num, seed in enum_seeds:
+        self.generate_shards(enum_seeds, store_path, cleanup)
 
-            file_hash = self.generate_shard(seed, store_path, cleanup=cleanup)
-            generated[seed] = file_hash
-            logger.info("Saving seed {0} with SHA-256 hash {1}.".format(
-                seed, file_hash
-            ))
-
-            if self.on_generate_shard:
-                self.on_generate_shard(shard_num + 1, seed, file_hash)
-
-        return generated
 
     def clean(self, store_path):
         """
