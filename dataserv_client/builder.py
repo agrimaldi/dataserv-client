@@ -97,41 +97,15 @@ class Builder:
         ) for seed in seeds]
 
         # save the shards
-        batch = RandomIO.BatchRandomIO(seeds, paths, self.shard_size, ncores=4)
+        batch = RandomIO.BatchRandomIO(seeds, paths, self.shard_size, ncores=1)
         hashes = batch.genfiles()
-        import sys; sys.exit()
-        import pdb; pdb.set_trace()  # XXX BREAKPOINT
 
-        # try:
-            # RandomIO.RandomIO(seed).genfile(self.shard_size, path)
-        # except IOError as e:
-            # msg = "Failed to write shard, will try once more! '{0}'"
-            # logger.error(msg.format(repr(e)))
-            # time.sleep(2)
-            # RandomIO.RandomIO(seed).genfile(self.shard_size, path)
+        # remove file if requested
+        if cleanup:
+            for p in paths:
+                os.remove(p)
 
-        # # get the file hash
-        # with open(path, 'rb') as f:
-            # file_hash = hashlib.sha256(f.read()).hexdigest()
-
-        # # remove file if requested
-        # if cleanup:
-            # os.remove(path)
-
-        # return file_hash
-
-        # for shard_num, seed in enum_seeds:
-
-            # file_hash = self.generate_shard(seed, store_path, cleanup=cleanup)
-            # generated[seed] = file_hash
-            # logger.info("Saving seed {0} with SHA-256 hash {1}.".format(
-                # seed, file_hash
-            # ))
-
-            # if self.on_generate_shard:
-                # self.on_generate_shard(shard_num + 1, seed, file_hash)
-
-        # return generated
+        return hashes
 
     def filter_to_resume_point(self, store_path, enum_seeds):
         """
@@ -170,7 +144,17 @@ class Builder:
         if not rebuild:
             enum_seeds = self.filter_to_resume_point(store_path, enum_seeds)
 
-        self.generate_shards(enum_seeds, store_path, cleanup)
+        hashes = self.generate_shards(enum_seeds, store_path, cleanup=cleanup)
+
+        for shard_num, (seed, file_hash) in enumerate(zip(list(zip(*enum_seeds))[0], hashes)):
+            generated[seed] = file_hash
+            logger.info("Saving seed {0} with SHA-256 hash {1}.".format(
+                seed, file_hash
+            ))
+            if self.on_generate_shard:
+                self.on_generate_shard(shard_num + 1, seed, file_hash)
+
+        return generated
 
 
     def clean(self, store_path):
