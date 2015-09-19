@@ -9,8 +9,6 @@ from datetime import datetime
 from dataserv_client import control
 from dataserv_client import common
 
-from functools import partial, partialmethod
-
 logger = common.logging.getLogger(__name__)
 
 
