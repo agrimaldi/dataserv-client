@@ -87,7 +87,7 @@ class Builder:
 
         return file_hash
 
-    def generate_shards(self, enum_seeds, store_path, cleanup):
+    def generate_shards(self, enum_seeds, store_path, cleanup, num_cores=1):
         shard_nums, seeds = zip(*enum_seeds)
 
         paths = [self._get_shard_path(
@@ -97,7 +97,7 @@ class Builder:
         ) for seed in seeds]
 
         # save the shards
-        batch = RandomIO.BatchRandomIO(seeds, paths, self.shard_size, ncores=1)
+        batch = RandomIO.BatchRandomIO(seeds, paths, self.shard_size, ncores=num_cores)
         hashes = batch.genfiles()
 
         # remove file if requested
@@ -129,13 +129,14 @@ class Builder:
         logger.info("Resuming from height {0}".format(index + 1))
         return enum_seeds[index:]
 
-    def build(self, store_path, cleanup=False, rebuild=False):
+    def build(self, store_path, cleanup=False, rebuild=False, num_cores=1):
         """
         Fill the farmer with data up to their max.
 
         :param store_path: What path to store the file.
         :param cleanup: Delete the file after generation.
         :param rebuild: Re-generate the shards.
+        :param num_cores: Number of cores used to build shards in parallel
         """
 
         generated = {}
@@ -144,7 +145,7 @@ class Builder:
         if not rebuild:
             enum_seeds = self.filter_to_resume_point(store_path, enum_seeds)
 
-        hashes = self.generate_shards(enum_seeds, store_path, cleanup=cleanup)
+        hashes = self.generate_shards(enum_seeds, store_path, cleanup=cleanup, num_cores=num_cores)
 
         for shard_num, (seed, file_hash) in enumerate(zip(list(zip(*enum_seeds))[0], hashes)):
             generated[seed] = file_hash
