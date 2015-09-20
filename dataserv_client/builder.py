@@ -100,7 +100,7 @@ class Builder:
 
         return paths, hashes
 
-    def filter_to_resume_point(self, store_path, enum_seeds):
+    def filter_to_resume_point(self, store_path, enum_seeds, num_cores=1):
         """
         Binary search to find the proper place to resume.
 
@@ -117,7 +117,7 @@ class Builder:
         index = bisect.bisect_left(seeds, HackedCompareObject())
 
         # rebuild last shard, likely corrupt
-        index = index - 1 if index > 0 else index
+        index = index - num_cores if index >= num_cores else index
 
         logger.info("Resuming from height {0}".format(index + 1))
         return enum_seeds[index:]
@@ -136,7 +136,7 @@ class Builder:
 
         enum_seeds = list(enumerate(self.build_seeds(self.target_height)))
         if not rebuild:
-            enum_seeds = self.filter_to_resume_point(store_path, enum_seeds)
+            enum_seeds = self.filter_to_resume_point(store_path, enum_seeds, num_cores)
 
         paths, hashes = self.generate_shards(enum_seeds, store_path, num_cores=num_cores)
 
