@@ -85,7 +85,7 @@ class Builder:
 
         return file_hash
 
-    def generate_shards(self, enum_seeds, store_path, cleanup, num_cores=1):
+    def generate_shards(self, enum_seeds, store_path, num_cores=1):
         shard_nums, seeds = zip(*enum_seeds)
 
         paths = [self._get_shard_path(
@@ -98,12 +98,7 @@ class Builder:
         batch = RandomIO.BatchRandomIO(seeds, paths, self.shard_size, ncores=num_cores)
         hashes = batch.genfiles()
 
-        # remove file if requested
-        if cleanup:
-            for p in paths:
-                os.remove(p)
-
-        return hashes
+        return paths, hashes
 
     def filter_to_resume_point(self, store_path, enum_seeds):
         """
@@ -143,15 +138,20 @@ class Builder:
         if not rebuild:
             enum_seeds = self.filter_to_resume_point(store_path, enum_seeds)
 
-        hashes = self.generate_shards(enum_seeds, store_path, cleanup=cleanup, num_cores=num_cores)
+        paths, hashes = self.generate_shards(enum_seeds, store_path, num_cores=num_cores)
 
-        for shard_num, (seed, file_hash) in enumerate(zip(list(zip(*enum_seeds))[0], hashes)):
+        for shard_num, (seed, file_hash) in enumerate(zip(list(zip(*enum_seeds))[1], hashes)):
             generated[seed] = file_hash
             logger.info("Saving seed {0} with SHA-256 hash {1}.".format(
                 seed, file_hash
             ))
             if self.on_generate_shard:
                 self.on_generate_shard(shard_num + 1, seed, file_hash)
+
+        # remove file if requested
+        if cleanup:
+            for p in paths:
+                os.remove(p)
 
         return generated
 
